@@ -1,11 +1,11 @@
 # WhatsApp Lite
 
-A minimal Tauri desktop shell that wraps https://web.whatsapp.com with the comforts you expect from a native app: frameless chrome, tray controls, login persistence, global shortcuts, badges, and start-on-login support.
+A minimal Tauri desktop shell that wraps https://web.whatsapp.com with the comforts you expect from a native app: standard window chrome, tray controls, login persistence, global shortcuts, badges, and start-on-login support.
 
 ## Highlights
 
 - Loads the official WhatsApp Web experience directly inside a hardened Tauri WebView (no UI reimplementation).
-- Frameless window with draggable WhatsApp header, persistent cookies, window size/position restore, and hidden/maximized state memory.
+- Native window chrome with persistent cookies, window size/position restore, and hidden/maximized state memory.
 - Tray icon with dynamic unread badge, quick reload/clear-cache actions, show/hide toggle, and a Preferences submenu with a start-on-login checkbox.
 - Global shortcuts: `Cmd/Ctrl+R` reloads, `Cmd/Ctrl+Shift+R` clears cache + reloads, `Cmd/Ctrl+W` hides the window.
 - Blocks navigation to other domains (opens them in the system browser instead) and proxies Notification API calls through the native OS even when the window is hidden.

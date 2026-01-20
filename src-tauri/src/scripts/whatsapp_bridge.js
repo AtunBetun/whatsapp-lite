@@ -94,70 +94,9 @@
     window.Notification = proxied;
   }
 
-  function markDragRegions() {
-    const header = document.querySelector('header');
-    if (!header || header.dataset.tauriTitlebar === '1') {
-      return;
-    }
-    header.dataset.tauriTitlebar = '1';
-    header.style.webkitAppRegion = 'drag';
-    header.style.userSelect = 'none';
-    const markInteractive = () => {
-      header
-        .querySelectorAll('button,[role="button"],a,input,[contenteditable="true"]')
-        .forEach((node) => {
-          node.style.webkitAppRegion = 'no-drag';
-        });
-    };
-    markInteractive();
-    new MutationObserver(markInteractive).observe(header, { childList: true, subtree: true });
-  }
-
-  function watchHeader() {
-    markDragRegions();
-    const bodyObserver = new MutationObserver(markDragRegions);
-    bodyObserver.observe(document.body, { childList: true, subtree: true });
-  }
-
-  function shouldBlockDrag(target) {
-    if (!(target instanceof Element)) return false;
-    return Boolean(
-      target.closest(
-        'input,textarea,select,button,a,[role="button"],[contenteditable="true"],[draggable="true"]'
-      )
-    );
-  }
-
-  function setupTopDragZone(api) {
-    const appWindow =
-      api.window?.getCurrent?.() ?? api.window?.appWindow ?? api.window;
-    if (!appWindow?.startDragging) {
-      return;
-    }
-
-    document.addEventListener(
-      "mousedown",
-      (event) => {
-        if (
-          event.button !== 0 ||
-          event.defaultPrevented ||
-          event.clientY > 56 ||
-          shouldBlockDrag(event.target)
-        ) {
-          return;
-        }
-
-        appWindow.startDragging().catch(() => {});
-      },
-      true
-    );
-  }
-
   withTauri(({ event }) => {
     preventDragAndDrop();
     trackUnread(event);
     proxyNotifications(event);
-    watchHeader();
-    setupTopDragZone(window.__TAURI__);
   });
 })();

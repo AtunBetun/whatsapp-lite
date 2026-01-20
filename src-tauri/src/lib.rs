@@ -10,8 +10,10 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     utils::config::WebviewUrl,
     webview::{NewWindowResponse, PageLoadEvent},
-    AppHandle, Event, Listener, Manager, Url, WebviewWindowBuilder, WindowEvent, Wry,
+    AppHandle, Event, Listener, Manager, Url, WebviewWindowBuilder, Wry,
 };
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_notification::NotificationExt;
@@ -152,7 +154,13 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .with_state_flags(StateFlags::all())
+                .with_state_flags(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::VISIBLE
+                        | StateFlags::FULLSCREEN,
+                )
                 .build(),
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -176,7 +184,6 @@ fn setup_application(app: &mut tauri::App<Wry>) -> tauri::Result<()> {
     let initially_hidden = !window.is_visible().unwrap_or(true);
     let tray = build_tray(app, autostart_enabled, initially_hidden)?;
 
-    attach_window_events(&window, tray.clone());
     register_tray_menu_events(tray.clone());
     register_tray_click_handler(app, tray.clone());
 
@@ -195,7 +202,7 @@ fn setup_application(app: &mut tauri::App<Wry>) -> tauri::Result<()> {
 fn build_main_window(app: &mut tauri::App<Wry>) -> tauri::Result<tauri::WebviewWindow<Wry>> {
     let handle = app.handle().clone();
     let navigation_handle = handle.clone();
-    WebviewWindowBuilder::new(
+    let mut builder = WebviewWindowBuilder::new(
         app,
         "main",
         WebviewUrl::External(WHATSAPP_URL.parse().expect("valid WhatsApp URL")),
@@ -204,7 +211,7 @@ fn build_main_window(app: &mut tauri::App<Wry>) -> tauri::Result<tauri::WebviewW
     .inner_size(1200.0, 800.0)
     .min_inner_size(360.0, 540.0)
     .resizable(true)
-    .decorations(false)
+    .decorations(true)
     .visible(true)
     .user_agent(USER_AGENT)
     .devtools(cfg!(debug_assertions))
@@ -221,8 +228,14 @@ fn build_main_window(app: &mut tauri::App<Wry>) -> tauri::Result<tauri::WebviewW
     .on_new_window(move |url: Url, _features| {
         let _ = handle.opener().open_url(url.to_string(), None::<&str>);
         NewWindowResponse::Deny
-    })
-    .build()
+    });
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.title_bar_style(TitleBarStyle::Visible);
+    }
+
+    builder.build()
 }
 
 fn build_tray(
@@ -312,17 +325,6 @@ fn register_tray_click_handler(app: &tauri::App<Wry>, tray: TrayHandle) {
         } = event
         {
             toggle_main_window(&app_handle, &tray, None);
-        }
-    });
-}
-
-fn attach_window_events(window: &tauri::WebviewWindow<Wry>, tray: TrayHandle) {
-    let window_handle = window.clone();
-    window.on_window_event(move |event| {
-        if let WindowEvent::CloseRequested { api, .. } = event {
-            api.prevent_close();
-            let _ = window_handle.hide();
-            tray.set_hidden(true);
         }
     });
 }

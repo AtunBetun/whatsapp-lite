@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-lite",
-  "description": "Frameless Tauri wrapper around WhatsApp Web with desktop integrations.",
+  "description": "Tauri wrapper around WhatsApp Web with desktop integrations.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
