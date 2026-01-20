@@ -9,7 +9,7 @@ A minimal Tauri desktop shell that wraps https://web.whatsapp.com with the comfo
 - Tray icon with dynamic unread badge, quick reload/clear-cache actions, show/hide toggle, and a Preferences submenu with a start-on-login checkbox.
 - Global shortcuts: `Cmd/Ctrl+R` reloads, `Cmd/Ctrl+Shift+R` clears cache + reloads, `Cmd/Ctrl+W` hides the window.
 - Blocks navigation to other domains (opens them in the system browser instead) and proxies Notification API calls through the native OS even when the window is hidden.
-- Enforced CSP, drag & drop disabled, devtools disabled in production, and all IPC access limited through capabilities.
+- Enforced CSP, devtools disabled in production, and all IPC access limited through capabilities while preserving native drag & drop behavior.
 
 ## Prerequisites
 

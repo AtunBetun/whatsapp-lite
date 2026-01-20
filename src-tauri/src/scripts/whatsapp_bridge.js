@@ -11,19 +11,6 @@
         }
     }
 
-    function preventDragAndDrop() {
-        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-            window.addEventListener(
-                eventName,
-                (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                },
-                { capture: true },
-            );
-        });
-    }
-
     function trackUnread(eventApi) {
         let lastCount = -1;
 
@@ -100,7 +87,6 @@
     }
 
     withTauri(({ event }) => {
-        // preventDragAndDrop();
         trackUnread(event);
         proxyNotifications(event);
     });

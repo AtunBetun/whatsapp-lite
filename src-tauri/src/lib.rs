@@ -213,6 +213,7 @@ fn build_main_window(app: &mut tauri::App<Wry>) -> tauri::Result<tauri::WebviewW
     .min_inner_size(360.0, 540.0)
     .resizable(true)
     .decorations(true)
+    .disable_drag_drop_handler()
     .visible(true)
     .user_agent(USER_AGENT)
     .devtools(cfg!(debug_assertions))
