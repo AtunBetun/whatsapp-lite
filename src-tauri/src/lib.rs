@@ -1,16 +1,14 @@
 use serde::Deserialize;
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32, Ordering},
+    Arc, Mutex,
 };
 use tauri::{
     menu::{CheckMenuItem, MenuBuilder, MenuEvent, MenuItem, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     utils::config::WebviewUrl,
     webview::{NewWindowResponse, PageLoadEvent},
-    AppHandle, Event, Listener, Manager, Url, WebviewWindowBuilder, Wry,
+    AppHandle, Event, Listener, Manager, Url, WebviewWindowBuilder, WindowEvent, Wry,
 };
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
@@ -355,39 +353,117 @@ fn listen_notifications(app: &tauri::App<Wry>) {
     });
 }
 
+#[derive(Default)]
+struct ShortcutHandles {
+    reload_registered: bool,
+    hard_reload_registered: bool,
+    close_registered: bool,
+}
+
 fn register_shortcuts(app: &tauri::App<Wry>, tray: TrayHandle) {
-    let reload_tray = tray.clone();
-    if let Err(err) = app.global_shortcut().on_shortcut(
-        "CmdOrCtrl+R",
-        move |app_handle, _, _| {
-            toggle_main_window(app_handle, &reload_tray, Some(true));
-            let _ = reload_webview(app_handle);
-        },
-    )
-    {
-        eprintln!("Failed to register CmdOrCtrl+R shortcut: {err}");
+    let Some(window) = app.get_webview_window("main") else {
+        eprintln!("Main window missing; skipping shortcut registration");
+        return;
+    };
+
+    let app_handle = app.handle().clone();
+    let handles = Arc::new(Mutex::new(ShortcutHandles::default()));
+    let focus_handles = handles.clone();
+    let focus_tray = tray.clone();
+    let focus_app = app_handle.clone();
+
+    window.on_window_event(move |event| match event {
+        WindowEvent::Focused(true) => {
+            if let Ok(mut guard) = focus_handles.lock() {
+                install_shortcuts(&focus_app, &focus_tray, &mut guard);
+            }
+        }
+        WindowEvent::Focused(false) | WindowEvent::Destroyed => {
+            if let Ok(mut guard) = focus_handles.lock() {
+                remove_shortcuts(&focus_app, &mut guard);
+            }
+        }
+        _ => {}
+    });
+
+    if window.is_focused().unwrap_or(true) {
+        if let Ok(mut guard) = handles.lock() {
+            install_shortcuts(&app_handle, &tray, &mut guard);
+        }
+    }
+}
+
+fn install_shortcuts(
+    app: &AppHandle<Wry>,
+    tray: &TrayHandle,
+    handles: &mut ShortcutHandles,
+) {
+    if !handles.reload_registered {
+        let reload_tray = tray.clone();
+        match app.global_shortcut().on_shortcut(
+            "CmdOrCtrl+R",
+            move |app_handle, _, _| {
+                toggle_main_window(app_handle, &reload_tray, Some(true));
+                let _ = reload_webview(app_handle);
+            },
+        ) {
+            Ok(_) => handles.reload_registered = true,
+            Err(err) => {
+                eprintln!("Failed to register CmdOrCtrl+R shortcut: {err}");
+            }
+        };
     }
 
-    let hard_tray = tray.clone();
-    if let Err(err) = app.global_shortcut().on_shortcut(
-        "CmdOrCtrl+Shift+R",
-        move |app_handle, _, _| {
-            toggle_main_window(app_handle, &hard_tray, Some(true));
-            let _ = hard_reload_webview(app_handle);
-        },
-    )
-    {
-        eprintln!("Failed to register CmdOrCtrl+Shift+R shortcut: {err}");
+    if !handles.hard_reload_registered {
+        let hard_tray = tray.clone();
+        match app.global_shortcut().on_shortcut(
+            "CmdOrCtrl+Shift+R",
+            move |app_handle, _, _| {
+                toggle_main_window(app_handle, &hard_tray, Some(true));
+                let _ = hard_reload_webview(app_handle);
+            },
+        ) {
+            Ok(_) => handles.hard_reload_registered = true,
+            Err(err) => {
+                eprintln!("Failed to register CmdOrCtrl+Shift+R shortcut: {err}");
+            }
+        };
     }
 
-    if let Err(err) = app.global_shortcut().on_shortcut(
-        "CmdOrCtrl+W",
-        move |app_handle, _, _| {
-            toggle_main_window(app_handle, &tray, Some(false));
-        },
-    )
-    {
-        eprintln!("Failed to register CmdOrCtrl+W shortcut: {err}");
+    if !handles.close_registered {
+        let hide_tray = tray.clone();
+        match app.global_shortcut().on_shortcut(
+            "CmdOrCtrl+W",
+            move |app_handle, _, _| {
+                toggle_main_window(app_handle, &hide_tray, Some(false));
+            },
+        ) {
+            Ok(_) => handles.close_registered = true,
+            Err(err) => {
+                eprintln!("Failed to register CmdOrCtrl+W shortcut: {err}");
+            }
+        };
+    }
+}
+
+fn remove_shortcuts(app: &AppHandle<Wry>, handles: &mut ShortcutHandles) {
+    if handles.reload_registered {
+        if let Err(err) = app.global_shortcut().unregister("CmdOrCtrl+R") {
+            eprintln!("Failed to unregister CmdOrCtrl+R shortcut: {err}");
+        }
+        handles.reload_registered = false;
+    }
+    if handles.hard_reload_registered {
+        if let Err(err) = app.global_shortcut().unregister("CmdOrCtrl+Shift+R") {
+            eprintln!("Failed to unregister CmdOrCtrl+Shift+R shortcut: {err}");
+        }
+        handles.hard_reload_registered = false;
+    }
+    if handles.close_registered {
+        if let Err(err) = app.global_shortcut().unregister("CmdOrCtrl+W") {
+            eprintln!("Failed to unregister CmdOrCtrl+W shortcut: {err}");
+        }
+        handles.close_registered = false;
     }
 }
 
