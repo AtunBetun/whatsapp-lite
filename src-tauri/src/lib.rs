@@ -24,6 +24,7 @@ const WHATSAPP_URL: &str = "https://web.whatsapp.com/";
 const UNREAD_EVENT: &str = "whatsapp-lite://unread-count";
 const NOTIFICATION_EVENT: &str = "whatsapp-lite://notification";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+const ALLOWED_WEBVIEW_HOSTS: &[&str] = &["web.whatsapp.com", "flows.whatsapp.net"];
 
 const MENU_TOGGLE: &str = "tray-toggle";
 const MENU_RELOAD: &str = "tray-reload";
@@ -423,7 +424,11 @@ fn allow_whatsapp_url(url: &Url) -> bool {
         "tauri" | "about" => true,
         "https" => url
             .host_str()
-            .map(|host| host.ends_with("web.whatsapp.com"))
+            .map(|host| {
+                ALLOWED_WEBVIEW_HOSTS
+                    .iter()
+                    .any(|allowed| host.eq_ignore_ascii_case(allowed))
+            })
             .unwrap_or(false),
         _ => false,
     }
