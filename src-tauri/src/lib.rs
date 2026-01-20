@@ -3,6 +3,8 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU32, Ordering},
     Arc, Mutex,
 };
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
 use tauri::{
     menu::{CheckMenuItem, MenuBuilder, MenuEvent, MenuItem, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
@@ -10,8 +12,6 @@ use tauri::{
     webview::{NewWindowResponse, PageLoadEvent},
     AppHandle, Event, Listener, Manager, Url, WebviewWindowBuilder, WindowEvent, Wry,
 };
-#[cfg(target_os = "macos")]
-use tauri::TitleBarStyle;
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_notification::NotificationExt;
@@ -393,20 +393,15 @@ fn register_shortcuts(app: &tauri::App<Wry>, tray: TrayHandle) {
     }
 }
 
-fn install_shortcuts(
-    app: &AppHandle<Wry>,
-    tray: &TrayHandle,
-    handles: &mut ShortcutHandles,
-) {
+fn install_shortcuts(app: &AppHandle<Wry>, tray: &TrayHandle, handles: &mut ShortcutHandles) {
     if !handles.reload_registered {
         let reload_tray = tray.clone();
-        match app.global_shortcut().on_shortcut(
-            "CmdOrCtrl+R",
-            move |app_handle, _, _| {
+        match app
+            .global_shortcut()
+            .on_shortcut("CmdOrCtrl+R", move |app_handle, _, _| {
                 toggle_main_window(app_handle, &reload_tray, Some(true));
                 let _ = reload_webview(app_handle);
-            },
-        ) {
+            }) {
             Ok(_) => handles.reload_registered = true,
             Err(err) => {
                 eprintln!("Failed to register CmdOrCtrl+R shortcut: {err}");
@@ -416,13 +411,12 @@ fn install_shortcuts(
 
     if !handles.hard_reload_registered {
         let hard_tray = tray.clone();
-        match app.global_shortcut().on_shortcut(
-            "CmdOrCtrl+Shift+R",
-            move |app_handle, _, _| {
+        match app
+            .global_shortcut()
+            .on_shortcut("CmdOrCtrl+Shift+R", move |app_handle, _, _| {
                 toggle_main_window(app_handle, &hard_tray, Some(true));
                 let _ = hard_reload_webview(app_handle);
-            },
-        ) {
+            }) {
             Ok(_) => handles.hard_reload_registered = true,
             Err(err) => {
                 eprintln!("Failed to register CmdOrCtrl+Shift+R shortcut: {err}");
@@ -432,12 +426,11 @@ fn install_shortcuts(
 
     if !handles.close_registered {
         let hide_tray = tray.clone();
-        match app.global_shortcut().on_shortcut(
-            "CmdOrCtrl+W",
-            move |app_handle, _, _| {
+        match app
+            .global_shortcut()
+            .on_shortcut("CmdOrCtrl+W", move |app_handle, _, _| {
                 toggle_main_window(app_handle, &hide_tray, Some(false));
-            },
-        ) {
+            }) {
             Ok(_) => handles.close_registered = true,
             Err(err) => {
                 eprintln!("Failed to register CmdOrCtrl+W shortcut: {err}");
@@ -617,8 +610,8 @@ fn draw_badge(data: &mut [u8], size: u32, count: u32) {
     let glyph_height = 7 * scale;
     let spacing = scale;
 
-    let text_width =
-        label.chars().count() as i32 * glyph_width as i32 + ((label.len().saturating_sub(1)) as i32 * spacing);
+    let text_width = label.chars().count() as i32 * glyph_width as i32
+        + ((label.len().saturating_sub(1)) as i32 * spacing);
     let start_x = (cx as i32) - text_width / 2;
     let start_y = (cy as i32) - (glyph_height as i32 / 2);
     for (index, ch) in label.chars().enumerate() {
@@ -638,17 +631,39 @@ fn draw_badge(data: &mut [u8], size: u32, count: u32) {
 
 fn glyph_bits(ch: char) -> Option<&'static [u8; 7]> {
     match ch {
-        '0' => Some(&[0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110]),
-        '1' => Some(&[0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
-        '2' => Some(&[0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111]),
-        '3' => Some(&[0b11110, 0b00001, 0b00001, 0b00110, 0b00001, 0b00001, 0b11110]),
-        '4' => Some(&[0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010]),
-        '5' => Some(&[0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110]),
-        '6' => Some(&[0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110]),
-        '7' => Some(&[0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000]),
-        '8' => Some(&[0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110]),
-        '9' => Some(&[0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100]),
-        '+' => Some(&[0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000, 0b00000]),
+        '0' => Some(&[
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ]),
+        '1' => Some(&[
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ]),
+        '2' => Some(&[
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ]),
+        '3' => Some(&[
+            0b11110, 0b00001, 0b00001, 0b00110, 0b00001, 0b00001, 0b11110,
+        ]),
+        '4' => Some(&[
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ]),
+        '5' => Some(&[
+            0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
+        ]),
+        '6' => Some(&[
+            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ]),
+        '7' => Some(&[
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ]),
+        '8' => Some(&[
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ]),
+        '9' => Some(&[
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
+        ]),
+        '+' => Some(&[
+            0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000, 0b00000,
+        ]),
         _ => None,
     }
 }
